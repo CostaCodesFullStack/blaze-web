@@ -1,0 +1,133 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+  EXPIRED
+  CANCELED
+}
+
+model User {
+  id         String   @id @default(cuid())
+  discordId  String   @unique
+  username   String
+  globalName String?
+  avatar     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  subscriptions Subscription[]
+  userGuilds     UserGuild[]
+}
+
+model Application {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String
+  icon        String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  subscriptions     Subscription[]
+  guildApplications GuildApplication[]
+}
+
+model Subscription {
+  id                    String            @id @default(cuid())
+  userId                String
+  applicationId         String
+  status                SubscriptionStatus @default(ACTIVE)
+  expiresAt             DateTime?
+  stripeCustomerId      String?
+  stripeSubscriptionId  String?           @unique
+  stripePriceId         String?
+  currentPeriodStart    DateTime?
+  currentPeriodEnd      DateTime?
+  canceledAt            DateTime?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, applicationId])
+  @@index([userId])
+  @@index([applicationId])
+  @@index([stripeCustomerId])
+}
+
+model StripeEvent {
+  id            String   @id @default(cuid())
+  stripeEventId String   @unique
+  eventType     String
+  processedAt   DateTime
+  createdAt     DateTime @default(now())
+
+  @@index([eventType])
+}
+
+model Guild {
+  id             String   @id @default(cuid())
+  discordId      String   @unique
+  name           String
+  icon           String?
+  ownerDiscordId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  userGuilds        UserGuild[]
+  guildApplications GuildApplication[]
+  blazeBotConfig    BlazeBotConfig?
+}
+
+model BlazeBotConfig {
+  id        String   @id @default(cuid())
+  guildId   String   @unique
+  enabled   Boolean  @default(true)
+  prefix    String   @default("!")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("BlazeBotConfig")
+}
+
+model UserGuild {
+  id        String   @id @default(cuid())
+  userId    String
+  guildId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, guildId])
+  @@index([userId])
+  @@index([guildId])
+}
+
+model GuildApplication {
+  id            String   @id @default(cuid())
+  guildId       String
+  applicationId String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  guild       Guild       @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@unique([guildId, applicationId])
+  @@index([guildId])
+  @@index([applicationId])
+}
